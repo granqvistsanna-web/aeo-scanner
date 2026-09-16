@@ -35,4 +35,4 @@ npx serve -l 5178 .                         # page on :5178, talks to :8787
 cd worker && npx wrangler deploy
 ```
 
-Then set the Worker URL in `API` near the top of the script in `index.html`. You can also pass `?api=https://…` to test against a different Worker.
+The live Worker is https://aeo-scanner.granqvistsanna.workers.dev (set as `API` in `index.html`). You can also pass `?api=https://…` to test against a different Worker.
