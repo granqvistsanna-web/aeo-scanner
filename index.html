@@ -790,11 +790,18 @@
     setTimeout(() => { label.textContent = "Copy report as Markdown"; $("copy").removeAttribute("data-done"); }, 1600);
   });
 
-  // theme: a click stores the choice; with none stored the page follows the system
-  document.querySelector(".theme").addEventListener("click", () => {
-    const root = document.documentElement;
-    root.dataset.theme = root.dataset.theme === "dark" ? "light" : "dark";
-    try { localStorage.setItem("theme", root.dataset.theme); } catch {}
+  // theme: a click stores the choice; with none stored the page follows the system.
+  // Pumice's theme switch: the new theme opens as a circle from the toggle (tokens.css draws it)
+  const tb = document.querySelector(".theme");
+  tb.addEventListener("click", () => {
+    const root = document.documentElement, next = root.dataset.theme === "dark" ? "light" : "dark";
+    try { localStorage.setItem("theme", next); } catch {}
+    const flip = () => { root.dataset.theme = next; };
+    if (!document.startViewTransition) return flip();
+    const r = tb.getBoundingClientRect();
+    root.style.setProperty("--vt-x", r.left + r.width / 2 + "px");
+    root.style.setProperty("--vt-y", r.top + r.height / 2 + "px");
+    document.startViewTransition(flip);
   });
 
   const initial = new URLSearchParams(location.search).get("url");
