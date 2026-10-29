@@ -17,7 +17,7 @@ Each check is weighted. Pass counts fully, "improve" counts half. A page that re
 
 ## How it's built
 
-- `index.html`: the whole frontend. Static, on GitHub Pages, styled with [Graphite Console](https://granqvistsanna-web.github.io/graphite-console/).
+- `index.html`: the whole frontend. Static, on GitHub Pages, styled with [Pumice](https://granqvistsanna-web.github.io/pumice/).
 - `worker/`: a Cloudflare Worker that fetches the page, `robots.txt`, `llms.txt` and the sitemap (browsers can't, because of CORS), then runs the analysis. Blocks private hosts, caps responses at 3 MB, times out after 10 s and caches results for 10 minutes.
 - `worker/src/analyze.js`: the checks, as pure functions with no I/O.
 
