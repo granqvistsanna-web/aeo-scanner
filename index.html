@@ -57,30 +57,23 @@
   .warn { --tone: color-mix(in srgb, var(--ember) 78%, var(--ink)); }
   .fail { --tone: color-mix(in srgb, var(--guide) 72%, var(--ink)); }
 
-  .wrap, .page {
-    margin: 0 auto;
-    padding-left: max(16px, env(safe-area-inset-left, 0px));
-    padding-right: max(16px, env(safe-area-inset-right, 0px));
+  /* tool content caps at --w-tool; the bar above stays full width */
+  .page {
+    margin: 0 auto; max-width: calc(var(--w-tool) + 2 * var(--gutter)); padding-bottom: 96px;
+    padding-left: max(var(--gutter), env(safe-area-inset-left, 0px));
+    padding-right: max(var(--gutter), env(safe-area-inset-right, 0px));
   }
-  .page { padding-bottom: 96px; }
 
-  /* ---- Bar ---- */
-  .bar {
-    position: sticky; top: 0; z-index: 20;
-    background: var(--frost);
-    -webkit-backdrop-filter: saturate(1.4) blur(12px); backdrop-filter: saturate(1.4) blur(12px);
-  }
-  .bar .wrap { height: 64px; display: flex; align-items: center; gap: var(--s-6); }
-  .back {
-    height: var(--h-nav); padding: 0 13px 0 9px; margin-left: -9px; border-radius: var(--r-pill);
-    display: inline-flex; align-items: center; gap: var(--s-3);
-    font: 500 14px/1 var(--font-ui); color: var(--ink-4); text-decoration: none;
-    transition: color var(--t-color), background var(--t-color), scale var(--t-press) var(--spring-soft);
-  }
-  .back:hover { color: var(--ink); background: var(--wash); }
-  .back:active { scale: var(--press-link); }
-  .back svg.i { width: var(--icon-sm); height: var(--icon-sm); }
-  .version { margin-left: auto; font-size: 13px; color: var(--ink-4); white-space: nowrap; }
+  /* Toolbox bar: the same on every tool page. Full width inside --gutter, "Toolbox / tool" left, actions right */
+  .tb-bar { position: sticky; top: 0; z-index: 20; background: var(--frost);
+    -webkit-backdrop-filter: saturate(1.4) blur(12px); backdrop-filter: saturate(1.4) blur(12px); }
+  .tb-bar-in { height: var(--h-topbar); display: flex; align-items: center; gap: var(--s-4);
+    padding-left: max(var(--gutter), env(safe-area-inset-left, 0px)); padding-right: max(var(--gutter), env(safe-area-inset-right, 0px)); }
+  .tb-bar [data-toolbox-home] { --tb-size: 30px; font-size: 15px; }
+  .tb-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 500 15px/1 var(--font-ui); color: var(--ink); }
+  .tb-end { margin-left: auto; display: flex; align-items: center; gap: var(--s-4); flex: none; }
+  .tb-end a { text-decoration: none; }
+  .btn.sm { height: var(--h-nav); padding: 0 16px; font-size: 14px; }
 
   .tool {
     position: relative; width: 36px; height: 36px; border: 0; border-radius: var(--r-pill);
@@ -99,7 +92,7 @@
   :root[data-theme="dark"] .theme .to-dark { display: block; }
 
   /* ---- Hero ---- */
-  header { margin-top: 56px; display: grid; justify-items: start; gap: var(--s-7); }
+  .page > header { margin-top: 56px; display: grid; justify-items: start; gap: var(--s-7); }
   .eyebrow {
     height: 32px; padding: 0 14px; border-radius: var(--r-pill); box-shadow: var(--ring);
     display: inline-flex; align-items: center; gap: var(--s-4);
@@ -377,7 +370,7 @@
     .bots { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   }
   @media (max-width: 560px) {
-    header { margin-top: 32px; }
+    .page > header { margin-top: 32px; }
     h1 { font-size: 32px; }
     form { flex-direction: column; align-items: stretch; }
     .field { flex: none; }
@@ -401,7 +394,7 @@
     footer a:first-of-type { margin-left: -12px; }
   }
   @media (pointer: coarse) {
-    .back, footer a, .chip { min-height: var(--h-touch); }
+    footer a, .chip { min-height: var(--h-touch); }
     .tool { width: var(--h-touch); height: var(--h-touch); }
     .btn { min-height: var(--h-touch); }
   }
@@ -430,16 +423,17 @@
   <symbol id="i-linkedin" viewBox="0 0 24 24"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"/><rect width="4" height="12" x="2" y="9"/><circle cx="4" cy="4" r="2"/></symbol>
 </svg>
 
-<div class="bar">
-  <div class="wrap">
-    <a class="back" href="https://granqvistsanna-web.github.io/" data-toolbox-home>Toolbox</a>
-    <span class="version">AEO Scanner · v1</span>
-    <button class="tool ring theme" type="button" aria-label="Switch theme">
-      <svg class="i to-light" style="width:16px;height:16px"><use href="#i-moon"/></svg>
-      <svg class="i to-dark" style="width:16px;height:16px"><use href="#i-sun"/></svg>
-    </button>
+<header class="tb-bar">
+  <div class="tb-bar-in">
+    <a href="https://granqvistsanna-web.github.io/" data-toolbox-home>Toolbox</a><span class="tb-sep" aria-hidden="true">/</span>
+    <span class="tb-name">AEO Scanner</span>
+    <div class="tb-end"><button class="tool ring theme" type="button" aria-label="Switch theme">
+        <svg class="i to-light" style="width:16px;height:16px"><use href="#i-moon"/></svg>
+        <svg class="i to-dark" style="width:16px;height:16px"><use href="#i-sun"/></svg>
+      </button>
+      <a class="btn sm" href="https://github.com/granqvistsanna-web/aeo-scanner"><svg class="i"><use href="#i-github"/></svg>GitHub</a></div>
   </div>
-</div>
+</header>
 
 <div class="page">
 
