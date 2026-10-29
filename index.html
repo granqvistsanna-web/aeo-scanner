@@ -119,6 +119,20 @@
     color: var(--ink); font: 400 15px/1 var(--font-ui);
   }
   .field input::placeholder { color: var(--ink-4); }
+
+  /* Label field: the label rests inside the pill, then lifts into its top edge on focus or once filled */
+  .float { position: relative; }
+  .float .lift {
+    position: absolute; left: 12px; top: 50%; translate: 0 -50%; padding: 0 6px; border-radius: var(--r-pill);
+    font: 400 15px/1.2 var(--font-ui); color: var(--ink-4); pointer-events: none; white-space: nowrap; transform-origin: left center;
+    transition: top var(--t-open) var(--spring-soft), scale var(--t-open) var(--spring-soft), color var(--t-color), background var(--t-color);
+  }
+  .float input::placeholder { color: transparent; transition: color var(--t-color); }
+  .float .proto { max-width: 0; opacity: 0; overflow: hidden; white-space: nowrap; transition: max-width var(--t-open) var(--spring-soft), opacity var(--t-fade); }
+  .float:is(:focus-within, :has(input:not(:placeholder-shown))) { background: var(--bg); box-shadow: var(--ring); }
+  .float:is(:focus-within, :has(input:not(:placeholder-shown))) .lift { top: 0; scale: .8; color: var(--ink-3); background: var(--bg); }
+  .float:is(:focus-within, :has(input:not(:placeholder-shown))) .proto { max-width: 5em; opacity: 1; }
+  .float:focus-within input::placeholder { color: var(--ink-4); }
   .kbd { font: 500 11px/1 var(--font-ui); color: var(--ink-4); padding: 5px 7px; margin-right: 4px; }
 
   .btn {
@@ -444,9 +458,9 @@
   </header>
 
   <form id="form" novalidate>
-    <label class="field" for="url">
+    <label class="field float" for="url">
+      <span class="lift">Website URL</span>
       <span class="proto" aria-hidden="true">https://</span>
-      <span class="sr">Website URL</span>
       <input id="url" type="text" inputmode="url" autocomplete="url" autocapitalize="off" spellcheck="false" placeholder="yourwebsite.com" required>
       <span class="kbd" aria-hidden="true">↵</span>
     </label>
