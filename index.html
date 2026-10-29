@@ -92,7 +92,7 @@
   :root[data-theme="dark"] .theme .to-dark { display: block; }
 
   /* ---- Hero ---- */
-  .page > header { margin-top: 56px; display: grid; justify-items: start; gap: var(--s-7); }
+  main > header { margin-top: 56px; display: grid; justify-items: start; gap: var(--s-7); }
   .eyebrow {
     height: 32px; padding: 0 14px; border-radius: var(--r-pill); box-shadow: var(--ring);
     display: inline-flex; align-items: center; gap: var(--s-4);
@@ -272,6 +272,7 @@
   .cat .top { display: flex; justify-content: space-between; align-items: baseline; gap: var(--s-4); }
   .cat .t { font-size: 14px; font-weight: 500; color: var(--ink-2); line-height: 1.3; }
   .cat .p { font-size: 12px; font-weight: 500; color: var(--ink-4); white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .cat .v.none { color: var(--ink-5); }
   .cat .v { font-size: 40px; line-height: 1.1; font-weight: 500; letter-spacing: -.02em; color: var(--ink); font-variant-numeric: tabular-nums; }
   .seg { display: grid; grid-template-columns: repeat(20, 1fr); gap: 2px; }
   .seg i { height: 8px; border-radius: var(--r-pill); background: var(--fill); transition: background var(--t-move); }
@@ -289,7 +290,8 @@
     background: var(--ink); color: var(--on-ink); font: 500 14px/1 var(--font-ui); font-variant-numeric: tabular-nums;
   }
   .fix .ft { color: var(--ink); font-weight: 500; font-size: 15px; line-height: 1.4; margin-top: 5px; }
-  .fix .fd { font-size: 14px; color: var(--ink-3); margin-top: var(--s-2); }
+  .fix .fd { font-size: 14px; color: var(--ink-4); margin-top: var(--s-2); overflow-wrap: anywhere; }
+  .fix .fd + .fd { color: var(--ink-2); }
   .fix .imp {
     height: var(--h-tag); padding: 0 10px; border-radius: var(--r-pill); box-shadow: var(--ring);
     display: inline-flex; align-items: center; margin-top: 4px; white-space: nowrap;
@@ -336,6 +338,21 @@
   .cbody p { margin: 0; overflow-wrap: anywhere; font-size: 14px; color: var(--ink-3); }
   .cbody .how { margin-top: var(--s-6); padding: 14px 16px; border-radius: 16px; background: var(--bg); color: var(--ink-2); line-height: 1.55; }
   .cbody .how b { display: block; font-size: 12px; line-height: 1.6; font-weight: 500; color: var(--ink-4); margin-bottom: var(--s-1); }
+  .cbody .why { margin-top: var(--s-3); color: var(--ink-4); }
+  .code { position: relative; margin-top: var(--s-5); }
+  .code pre {
+    margin: 0; padding: 12px 14px; padding-right: 84px; border-radius: var(--r-inner); background: var(--wash); color: var(--ink-2);
+    font: 400 12px/1.6 var(--font-code); white-space: pre-wrap; overflow-wrap: anywhere; max-height: 280px; overflow: auto;
+  }
+  .code .chip { position: absolute; top: 6px; right: 6px; height: var(--h-tag); padding: 0 10px; font-size: 12px; background: var(--bg); }
+  .code .chip[data-done] { color: var(--ok); }
+
+  /* ---- Quotable passages: what an engine could lift as is ---- */
+  .quotes { display: grid; gap: var(--s-4); }
+  .quote { margin: 0; background: var(--wash); border-radius: var(--r-card); padding: 20px 22px; }
+  .quote .q { font-size: 13px; font-weight: 500; color: var(--ink-4); margin-bottom: var(--s-3); }
+  .quote blockquote { margin: 0; padding-left: 14px; border-left: 2px solid var(--ink); color: var(--ink); font-size: 16px; line-height: 1.55; }
+  .quote .w { margin-top: var(--s-4); font-size: 12px; color: var(--ink-4); font-variant-numeric: tabular-nums; }
 
   /* ---- Crawlers ---- */
   .bots { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s-4); }
@@ -384,7 +401,7 @@
     .bots { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   }
   @media (max-width: 560px) {
-    .page > header { margin-top: 32px; }
+    main > header { margin-top: 32px; }
     h1 { font-size: 32px; }
     form { flex-direction: column; align-items: stretch; }
     .field { flex: none; }
@@ -401,6 +418,8 @@
     .cat .v { font-size: 30px; }
     .weight, .slabel { display: none; }
     .cbody { padding-left: 14px; }
+    .code pre { padding: 40px 14px 12px; }
+    .quote { padding: 18px; }
     .fix { grid-template-columns: auto minmax(0, 1fr); padding: 18px; gap: var(--s-6); }
     .fix .imp { display: none; }
     .bots { grid-template-columns: 1fr; }
@@ -450,6 +469,7 @@
 </header>
 
 <div class="page">
+<main>
 
   <header>
     <span class="eyebrow"><span class="blink" aria-hidden="true"></span>Answer engine readiness</span>
@@ -482,11 +502,11 @@
   <!-- ============ Pre-scan ============ -->
   <div id="intro">
     <section>
-      <div class="sec-label"><span class="n">00</span> What gets measured <span class="count">up to 28 checks</span></div>
+      <div class="sec-label"><span class="n">00</span> What gets measured <span class="count">up to 29 checks</span></div>
       <div class="spec">
-        <article><span class="num">08<small>checks</small></span><div class="ticks" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><h3>Crawler access</h3><p>robots.txt rules for 11 AI crawlers, llms.txt, sitemap, noindex, and whether content exists without JavaScript.</p></article>
+        <article><span class="num">09<small>checks</small></span><div class="ticks" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><h3>Crawler access</h3><p>robots.txt rules for 11 AI crawlers, bot walls, llms.txt, sitemap, noindex and nosnippet, and whether content exists without JavaScript.</p></article>
         <article><span class="num">06<small>checks</small></span><div class="ticks" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><h3>Metadata</h3><p>Title, description, canonical, language, Open Graph and a machine-readable update date.</p></article>
-        <article><span class="num">07<small>checks</small></span><div class="ticks" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><h3>Content structure</h3><p>One H1, a clean outline, question headings, an answer up front, lists and semantic HTML.</p></article>
+        <article><span class="num">07<small>checks</small></span><div class="ticks" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><h3>Content structure</h3><p>One H1, a clean outline, questions with a short answer right below, an answer up front, lists and semantic HTML.</p></article>
         <article><span class="num">07<small>checks</small></span><div class="ticks" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><h3>Schema &amp; authority</h3><p>JSON-LD, organization identity, page type, named author, FAQ markup, links and hard figures.</p></article>
       </div>
     </section>
@@ -518,14 +538,19 @@
     <div class="cats" id="cats"></div>
 
     <section id="fixes-sec" class="reveal">
-      <div class="sec-label"><span class="n">01</span> Fix these first <span class="count" id="fix-count"></span></div>
+      <div class="sec-label"><span class="n" data-n></span> Fix these first <span class="count" id="fix-count"></span></div>
       <div class="fixes" id="fixes"></div>
+    </section>
+
+    <section id="quotes-sec" class="reveal">
+      <div class="sec-label"><span class="n" data-n></span> What AI could quote <span class="count" id="quotes-count"></span></div>
+      <div class="quotes" id="quotes"></div>
     </section>
 
     <div id="groups"></div>
 
     <section class="reveal">
-      <div class="sec-label"><span class="n" id="bots-n"></span> AI crawlers in robots.txt <span class="count" id="bots-count"></span></div>
+      <div class="sec-label"><span class="n" data-n></span> AI crawlers in robots.txt <span class="count" id="bots-count"></span></div>
       <div class="bots" id="bots"></div>
     </section>
 
@@ -535,6 +560,8 @@
     </div>
     <p class="note">Scores follow this tool's own heuristics from a single fetch of the page. They can't show whether you're actually cited. Use them as a checklist, not a verdict.</p>
   </div>
+
+</main>
 
   <footer>
     <span class="byline">Sanna Granqvist</span>
@@ -622,7 +649,7 @@
     history.replaceState(null, "", "?" + q);
 
     try {
-      const res = await fetch(`${API}/scan?url=${encodeURIComponent(value)}`, { signal: AbortSignal.timeout(25000) });
+      const res = await fetch(`${API}/scan?url=${encodeURIComponent(value)}`, { signal: AbortSignal.timeout(30000) });
       const data = await res.json().catch(() => ({ error: "The scanner returned an unexpected response." }));
       if (!res.ok || data.error) throw new Error(data.error || `Scan failed (${res.status}).`);
       report = data;
@@ -686,21 +713,23 @@
   function render(r) {
     const passed = r.checks.filter((c) => c.status === "pass").length;
     $("grade").textContent = r.grade;
-    $("headline").textContent = HEADLINES[r.grade] || "";
+    $("headline").textContent = r.page.readable === false
+      ? "Answer engines can't read this page. Only crawler access was checked."
+      : HEADLINES[r.grade] || "";
     $("target").innerHTML = `<a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.url)}</a>`;
     const blocked = r.bots.filter((b) => !b.allowed).length;
     $("facts").innerHTML = [
       [`${passed}/${r.checks.length}`, "checks passed"],
       [`${blocked}/${r.bots.length}`, "AI crawlers blocked"],
-      [r.page.wordCount.toLocaleString("en"), "words in raw HTML"],
+      [r.page.readable === false ? "—" : r.page.wordCount.toLocaleString("en"), "words in raw HTML"],
       [`${r.page.timeMs} ms`, "server response"],
     ].map(([v, l]) => `<div class="readout"><b>${esc(v)}</b><span>${l}</span></div>`).join("");
 
     $("cats").innerHTML = r.categories.map((c) => `
-      <a class="cat reveal" href="#cat-${c.id}">
-        <span class="top"><span class="t">${esc(c.title)}</span><span class="p">${c.passed}/${c.total}</span></span>
-        <span class="v">${c.score}</span>
-        <span class="seg" aria-hidden="true">${segs(c.score)}</span>
+      <a class="cat reveal"${c.total ? ` href="#cat-${c.id}"` : ""}>
+        <span class="top"><span class="t">${esc(c.title)}</span><span class="p">${c.total ? `${c.passed}/${c.total}` : "not checked"}</span></span>
+        <span class="v${c.score == null ? " none" : ""}">${c.score ?? "—"}</span>
+        <span class="seg" aria-hidden="true">${segs(c.score ?? 0)}</span>
       </a>`).join("");
 
     const todo = r.checks.filter((c) => c.status !== "pass")
@@ -711,19 +740,30 @@
     $("fixes").innerHTML = todo.map((c, i) => `
       <div class="fix">
         <span class="k">${i + 1}</span>
-        <div><div class="ft">${esc(c.title)}</div><div class="fd">${esc(c.fix)}</div></div>
+        <div><div class="ft">${esc(c.title)}</div><div class="fd">${esc(c.detail)}</div><div class="fd">${esc(c.fix)}${c.snippet ? ` <a href="#chk-${c.id}">Copy the fix</a>` : ""}</div></div>
         <span class="imp">${c.weight >= 3 ? "High" : c.weight === 2 ? "Medium" : "Low"} impact</span>
       </div>`).join("");
 
-    const offset = todo.length ? 2 : 1;
+    const quotes = r.quotes || [];
+    $("quotes-sec").hidden = !quotes.length;
+    $("quotes-count").textContent = quotes[0]?.q ? `${quotes.length} answer${quotes.length === 1 ? "" : "s"}` : "opening paragraph";
+    $("quotes").innerHTML = quotes.map((x) => {
+      const w = x.a.split(/\s+/).length;
+      return `<figure class="quote">
+        ${x.q ? `<div class="q">${esc(x.q)}</div>` : `<div class="q">No question with a direct answer found. The opening paragraph is the likeliest quote.</div>`}
+        <blockquote>${esc(x.a)}</blockquote>
+        <div class="w">${w} words${w > 90 ? " · long for a quote: lead with 1–3 sentences" : w < 12 ? " · too short to stand on its own" : ""}</div>
+      </figure>`;
+    }).join("");
+
     const order = { fail: 0, warn: 1, pass: 2 };
-    $("groups").innerHTML = r.categories.map((cat, i) => {
+    $("groups").innerHTML = r.categories.filter((cat) => cat.total).map((cat) => {
       const list = r.checks.filter((c) => c.category === cat.id).sort((a, b) => order[a.status] - order[b.status]);
       return `<section id="cat-${cat.id}" class="reveal">
-        <div class="sec-label"><span class="n">${pad(i + offset)}</span> ${esc(cat.title)} <span class="count">${cat.passed}/${cat.total} passed · ${cat.score}</span></div>
+        <div class="sec-label"><span class="n" data-n></span> ${esc(cat.title)} <span class="count">${cat.passed}/${cat.total} passed · ${cat.score}</span></div>
         <div class="checks">${list.map((c) => {
           const [ic, label] = STATUS[c.status];
-          return `<details class="${c.status}"${c.status === "fail" ? " open" : ""}>
+          return `<details id="chk-${c.id}" class="${c.status}"${c.status === "fail" ? " open" : ""}>
             <summary>
               <span class="st ${c.status}" title="${label}">${icon(ic)}<span class="sr">${label}:</span></span>
               <span class="ctitle"><span class="name">${esc(c.title)}</span><span class="brief">${esc(c.detail)}</span></span>
@@ -731,13 +771,14 @@
               <span class="slabel">${label}</span>
               <svg class="i caret" aria-hidden="true"><use href="#i-caret"/></svg>
             </summary>
-            <div class="cbody"><p>${esc(c.detail)}</p>${c.fix ? `<div class="how"><b>How to fix</b>${esc(c.fix)}</div>` : ""}</div>
+            <div class="cbody"><p>${esc(c.detail)}</p>${c.why ? `<p class="why">${esc(c.why)}</p>` : ""}${c.fix ? `<div class="how"><b>How to fix</b>${esc(c.fix)}${c.snippet ? `<div class="code"><pre>${esc(c.snippet)}</pre><button class="chip" type="button" data-copy>Copy</button></div>` : ""}</div>` : ""}</div>
           </details>`;
         }).join("")}</div>
       </section>`;
     }).join("");
 
-    $("bots-n").textContent = pad(r.categories.length + offset);
+    // number the visible sections in order
+    [...$("results").querySelectorAll("section:not([hidden]) [data-n]")].forEach((n, i) => n.textContent = pad(i + 1));
     $("bots-count").textContent = blocked ? `${blocked} blocked` : "all allowed";
     $("bots").innerHTML = r.bots.map((b) => `
       <div class="bot ${b.allowed ? "ok" : "no"}">
@@ -758,12 +799,16 @@
   function markdown(r) {
     const mark = { pass: "✅", warn: "⚠️", fail: "❌" };
     let md = `# AEO readiness: ${r.url}\n\n**Score ${r.score}/100 · ${r.grade}** · scanned ${r.scannedAt.slice(0, 10)}\n\n`;
-    md += r.categories.map((c) => `- ${c.title}: ${c.score} (${c.passed}/${c.total})`).join("\n") + "\n";
-    for (const c of r.categories) {
+    md += r.categories.map((c) => `- ${c.title}: ${c.total ? `${c.score} (${c.passed}/${c.total})` : "not checked"}`).join("\n") + "\n";
+    const todo = r.checks.filter((c) => c.status !== "pass")
+      .sort((a, b) => (b.status === "fail") - (a.status === "fail") || b.weight - a.weight);
+    if (todo.length) md += `\n## Fix first\n\n` + todo.slice(0, 5).map((k) => `- [ ] **${k.title}**: ${k.fix}`).join("\n") + "\n";
+    for (const c of r.categories.filter((c) => c.total)) {
       md += `\n## ${c.title}\n\n`;
       for (const k of r.checks.filter((x) => x.category === c.id)) {
         md += `- ${mark[k.status]} **${k.title}**: ${k.detail}\n`;
-        if (k.fix) md += `  - Fix: ${k.fix}\n`;
+        if (k.fix) md += `  - Why: ${k.why}\n  - Fix: ${k.fix}\n`;
+        if (k.snippet) md += "\n```\n" + k.snippet + "\n```\n\n";
       }
     }
     const blockedBots = r.bots.filter((b) => !b.allowed).map((b) => b.ua);
@@ -780,6 +825,20 @@
   $("examples").addEventListener("click", (e) => {
     const u = e.target.closest("button")?.dataset.u;
     if (u) { $("url").value = u; run(u); }
+  });
+  $("results").addEventListener("click", async (e) => {
+    const link = e.target.closest('a[href^="#chk-"]');
+    if (link) document.querySelector(link.getAttribute("href")).open = true;
+    const btn = e.target.closest("[data-copy]");
+    if (!btn) return;
+    try {
+      await navigator.clipboard.writeText(btn.previousElementSibling.textContent);
+      btn.textContent = "Copied";
+      btn.toggleAttribute("data-done", true);
+    } catch {
+      btn.textContent = "Couldn't copy";
+    }
+    setTimeout(() => { btn.textContent = "Copy"; btn.removeAttribute("data-done"); }, 1600);
   });
   $("again").addEventListener("click", () => {
     window.scrollTo({ top: 0, behavior: REDUCED ? "auto" : "smooth" });
