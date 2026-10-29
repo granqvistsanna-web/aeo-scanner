@@ -12,7 +12,7 @@ if (flag === "--json") {
   const mark = { pass: "✓", warn: "~", fail: "✗" };
   console.log(`\n${r.url}\nScore ${r.score} — ${r.grade}\n`);
   for (const c of r.categories) {
-    console.log(`${c.title}  ${c.score}  (${c.passed}/${c.total})`);
+    console.log(`${c.title}  ${c.score ?? "not checked"}  (${c.passed}/${c.total})`);
     for (const k of r.checks.filter((x) => x.category === c.id)) console.log(`  ${mark[k.status]} ${k.title}: ${k.detail}`);
   }
   console.log("\nBlocked bots:", r.bots.filter((b) => !b.allowed).map((b) => b.ua).join(", ") || "none");

@@ -3,6 +3,8 @@ import { analyze } from "./analyze.js";
 const UA = "Mozilla/5.0 (compatible; AEO-Scanner/1.0; +https://granqvistsanna-web.github.io/aeo-scanner/)";
 const MAX_BYTES = 3_000_000;
 const TIMEOUT_MS = 10_000;
+// robots.txt, llms.txt and sitemaps get less time, so a full scan stays under ~20 s.
+const SIDE_TIMEOUT_MS = 5_000;
 
 export class ScanError extends Error {
   constructor(message, status = 400) {
@@ -42,7 +44,7 @@ function assertPublicHost(u) {
     throw new ScanError("Only public websites can be scanned.");
 }
 
-async function readCapped(res) {
+async function readCapped(res, max = MAX_BYTES) {
   if (!res.body) return "";
   const reader = res.body.getReader();
   const chunks = [];
@@ -51,13 +53,13 @@ async function readCapped(res) {
     const { done, value } = await reader.read();
     if (done) break;
     size += value.byteLength;
-    if (size > MAX_BYTES) {
+    if (size > max) {
       await reader.cancel();
       break;
     }
     chunks.push(value);
   }
-  const buf = new Uint8Array(Math.min(size, MAX_BYTES));
+  const buf = new Uint8Array(Math.min(size, max));
   let off = 0;
   for (const c of chunks) {
     buf.set(c.subarray(0, buf.length - off), off);
@@ -68,9 +70,9 @@ async function readCapped(res) {
 }
 
 // Follows redirects by hand so every hop is checked against private hosts.
-async function get(url, { accept = "text/html,*/*;q=0.8", readBody = true } = {}) {
+async function get(url, { accept = "text/html,*/*;q=0.8", timeout = TIMEOUT_MS, maxBytes = MAX_BYTES } = {}) {
   let current = new URL(url);
-  const deadline = AbortSignal.timeout(TIMEOUT_MS);
+  const deadline = AbortSignal.timeout(timeout);
   for (let hop = 0; hop < 6; hop++) {
     assertPublicHost(current);
     const res = await fetch(current, {
@@ -86,7 +88,7 @@ async function get(url, { accept = "text/html,*/*;q=0.8", readBody = true } = {}
     }
     const headers = {};
     res.headers.forEach((v, k) => (headers[k.toLowerCase()] = v));
-    const text = readBody ? await readCapped(res) : (await res.body?.cancel(), "");
+    const text = await readCapped(res, maxBytes);
     return { url: current.href, status: res.status, headers, text };
   }
   throw new ScanError("Too many redirects.", 502);
@@ -111,23 +113,21 @@ export async function scan(rawUrl) {
   const timeMs = performance.now() - t0;
   const origin = new URL(page.url).origin;
 
+  const side = { timeout: SIDE_TIMEOUT_MS };
   const [robots, llms] = await Promise.all([
-    soft(get(origin + "/robots.txt", { accept: "text/plain,*/*" })),
-    soft(get(origin + "/llms.txt", { accept: "text/plain,text/markdown,*/*" })),
+    soft(get(origin + "/robots.txt", { ...side, accept: "text/plain,*/*" })),
+    soft(get(origin + "/llms.txt", { ...side, accept: "text/plain,text/markdown,*/*" })),
   ]);
 
   const listed = robots && robots.status === 200
     ? (robots.text.match(/^\s*sitemap\s*:\s*(\S+)/gim) || []).map((l) => l.replace(/^\s*sitemap\s*:\s*/i, ""))
     : [];
   const candidates = [...new Set([...listed.slice(0, 2), origin + "/sitemap.xml", origin + "/sitemap_index.xml"])];
-  let sitemap = null;
-  for (const c of candidates) {
-    const r = await soft(get(c, { accept: "application/xml,text/xml,*/*" }));
-    if (r && r.status === 200 && /<(urlset|sitemapindex)\b/i.test(r.text)) {
-      sitemap = { status: 200, url: r.url };
-      break;
-    }
-  }
+  // Fetch the candidates together (only the first 64 KB: enough to see the root tag); the first valid one in order wins.
+  const tries = await Promise.all(candidates.map((c) =>
+    soft(get(c, { ...side, maxBytes: 65_536, accept: "application/xml,text/xml,*/*" }))));
+  const hit = tries.find((r) => r && r.status === 200 && /<(urlset|sitemapindex)\b/i.test(r.text));
+  const sitemap = hit ? { status: 200, url: hit.url } : null;
 
   const isHtml = /html|xml/i.test(page.headers["content-type"] || "text/html");
   return analyze({

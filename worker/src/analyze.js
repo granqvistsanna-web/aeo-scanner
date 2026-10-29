@@ -125,8 +125,41 @@ export function robotsVerdict(robots, ua, path) {
 
 /* ---------------- check builder ---------------- */
 
-function check(category, id, title, weight, status, detail, fix) {
-  return { category, id, title, weight, status, detail, fix: status === "pass" ? null : fix };
+// Why each check matters for AI answers. One line, shown next to the finding.
+const WHY = {
+  status: "An answer engine can only quote what it can download. Errors and bot walls drop the page from its index.",
+  https: "Crawlers and browsers treat plain HTTP as less trustworthy, and some skip it.",
+  noindex: "noindex removes the page from the search indexes that ChatGPT, Perplexity and Gemini draw their sources from.",
+  snippet: "nosnippet and max-snippet:0 forbid quoting the page. Google applies them to AI Overviews and AI Mode too.",
+  robots: "Each AI product fetches with its own crawler. A blocked crawler means that product can't read or cite the page.",
+  llms: "llms.txt is a short Markdown map of the site written for language models. It's cheap to add and some agents read it first.",
+  sitemap: "A sitemap is how crawlers find new and updated pages quickly. ChatGPT search leans on Bing, which uses it heavily.",
+  rawtext: "Most AI crawlers read the raw HTML and don't run JavaScript. Text that only appears after scripts run is invisible to them.",
+  speed: "Crawlers give up on slow pages, and answer engines fetching live for a user have only a few seconds.",
+  title: "The title is the strongest label for what the page is about, and it's what a citation link shows.",
+  description: "Engines use the description as a ready-made summary of the page when deciding what to cite.",
+  canonical: "The canonical tells engines which URL to index and cite. Without it, signals split across duplicates.",
+  lang: "Engines answer in the user's language and match sources to it.",
+  og: "Chat interfaces build their source cards and link previews from Open Graph tags.",
+  freshness: "Answer engines prefer recent sources, and they can only tell what's recent from a machine-readable date.",
+  h1: "The H1 is the page's main claim. Models use it to decide which question the page answers.",
+  hierarchy: "Models split pages into chunks by heading. A clean outline keeps each answer with its topic.",
+  questions: "AI answers are built from short passages that answer a question directly. A question heading with a 1–3 sentence answer under it is exactly that shape.",
+  answerfirst: "The first paragraph is the most likely passage to be quoted as the summary of the page.",
+  lists: "Steps, comparisons and specs in real lists and tables are easy to lift into an answer intact.",
+  semantic: "Landmarks let crawlers separate the content from menus, cookie banners and footers.",
+  alt: "Text-only models know what an image shows only from its alt text.",
+  jsonld: "Structured data states facts (what, who, when, price) in a form machines read without guessing.",
+  entity: "Models connect a page to an organisation or person through schema and sameAs links. That's how they know who is talking.",
+  pagetype: "The schema type says what kind of page it is: an article, a product, a service.",
+  author: "A named, verifiable author is a trust signal engines use when picking which source to quote.",
+  faq: "FAQPage markup labels the question-and-answer pairs explicitly.",
+  links: "Internal links show engines the rest of your coverage; cited sources back up the claims they'd quote.",
+  facts: "Models prefer passages with specific, checkable facts. Numbers are what they can't get from everyone else.",
+};
+
+function check(category, id, title, weight, status, detail, fix, snippet) {
+  return { category, id, title, weight, status, detail, why: WHY[id], fix: status === "pass" ? null : fix, snippet: status === "pass" ? null : snippet || null };
 }
 
 const QUESTION_START =
@@ -188,23 +221,39 @@ export function analyze(input) {
 
   /* ================= ACCESS ================= */
 
+  // A bot wall can answer 200 with a challenge page; scoring its "content" would be noise.
+  const challenge = headers["cf-mitigated"] === "challenge" ||
+    /<title>\s*(just a moment|attention required|access denied|verify you are human)/i.test(html) ||
+    /captcha-delivery\.com|enable js and disable any ad blocker|cf-chl-|_incapsula_/i.test(html);
+  const readable = status >= 200 && status < 300 && !challenge && status !== 415;
   add("access", "status", "Page responds with 200", 3,
-    status >= 200 && status < 300 ? "pass" : "fail",
-    status >= 200 && status < 300
+    readable ? "pass" : "fail",
+    readable
       ? `HTTP ${status}${u.protocol === "https:" ? " over HTTPS" : ""}.`
-      : `HTTP ${status}. Crawlers treat this page as unavailable.${status === 403 || status === 429 ? " A firewall or bot protection may be blocking automated visitors." : ""}`,
-    status === 403 || status === 503
-      ? "Check your bot protection (Cloudflare Bot Fight Mode, WAF rules). It can block AI crawlers as well as this scanner."
-      : "Make sure the URL returns 200 without requiring cookies, login or JavaScript challenges.");
+      : status === 415
+        ? "The URL doesn't return an HTML page."
+        : challenge
+          ? `HTTP ${status}, but the response is a bot-protection challenge, not the page. Crawlers get the same wall.`
+          : `HTTP ${status}. Crawlers treat this page as unavailable.${status === 403 || status === 429 ? " A firewall or bot protection may be blocking automated visitors." : ""}`,
+    challenge || status === 403 || status === 429 || status === 503
+      ? "In your bot protection (Cloudflare Bot Fight Mode, WAF or CDN rules), allow verified AI crawlers: OAI-SearchBot, ChatGPT-User, Claude-SearchBot, Claude-User, PerplexityBot and Bingbot. On Cloudflare: Security → Bots → allow \"Verified bots\"."
+      : status === 415 ? "Scan an HTML page URL." : "Make sure the URL returns 200 without requiring cookies, login or a JavaScript challenge.");
 
   if (u.protocol !== "https:")
     add("access", "https", "Served over HTTPS", 1, "fail", "The page loads over plain HTTP.", "Redirect all traffic to HTTPS.");
 
-  const robotsTag = [headers["x-robots-tag"] || "", metaContent(metas, "robots") || ""].join(",").toLowerCase();
+  const robotsTag = [headers["x-robots-tag"] || "", metaContent(metas, "robots") || "", metaContent(metas, "googlebot") || ""].join(",").toLowerCase();
+  const found = `Found "${robotsTag.replace(/^,+|,+$/g, "").replace(/,,+/g, ",")}".`;
   const noindex = /noindex|\bnone\b/.test(robotsTag);
-  add("access", "noindex", "Page is indexable", 3, noindex ? "fail" : "pass",
-    noindex ? `Found "${robotsTag.replace(/^,|,$/g, "")}". Search and answer engines are told to leave this page out.` : "No noindex directive in meta robots or X-Robots-Tag.",
-    "Remove noindex from the meta robots tag / X-Robots-Tag header, unless you really want this page hidden.");
+  if (readable || headers["x-robots-tag"]) {
+    add("access", "noindex", "Page is indexable", 3, noindex ? "fail" : "pass",
+      noindex ? `${found} Search and answer engines are told to leave this page out.` : "No noindex directive in meta robots or X-Robots-Tag.",
+      "Remove noindex from the meta robots tag and the X-Robots-Tag header, unless you really want this page hidden.");
+    const nosnippet = /nosnippet|max-snippet\s*:\s*0\b/.test(robotsTag);
+    add("access", "snippet", "Page may be quoted", 2, nosnippet ? "fail" : "pass",
+      nosnippet ? `${found} Engines may index the page but not quote from it.` : "No nosnippet or max-snippet limit.",
+      "Remove nosnippet / max-snippet:0. To hide just one block from quotes, put data-nosnippet on that element instead.");
+  }
 
   const bots = AI_BOTS.map((b) => {
     if (!robots || robots.status >= 400) return { ...b, allowed: true, matchedBy: null, rule: null };
@@ -212,6 +261,9 @@ export function analyze(input) {
   });
   const blocked = bots.filter((b) => !b.allowed);
   const blockedSearch = blocked.filter((b) => /search|fetches|Bing|Overviews|Perplexity/i.test(b.role + b.owner));
+  const robotsSnippet = blocked.length
+    ? blocked.map((b) => `User-agent: ${b.ua}`).join("\n") + "\nAllow: /\n"
+    : null;
   add("access", "robots", "robots.txt lets AI crawlers in", 4,
     !blocked.length ? "pass" : blockedSearch.length ? "fail" : "warn",
     !robots || robots.status >= 400
@@ -220,24 +272,38 @@ export function analyze(input) {
         ? `All ${bots.length} AI crawlers checked may fetch this page.`
         : `Blocked: ${blocked.map((b) => b.ua).join(", ")}.`,
     blockedSearch.length
-      ? "Blocking search/fetch bots (OAI-SearchBot, ChatGPT-User, PerplexityBot, Claude-SearchBot, Bingbot) removes you from AI answers. Allow them in robots.txt. Blocking training-only bots is a separate, deliberate choice."
-      : "Only training crawlers are blocked. That's a valid choice, but make it deliberately: it can reduce how well models know your brand.");
+      ? `${blockedSearch.map((b) => b.ua).join(", ")} fetch pages for live AI answers, so blocking them removes you from those answers. Add this group to robots.txt (a named group overrides User-agent: *). Blocking training-only crawlers like GPTBot is a separate choice.`
+      : "Only training crawlers are blocked. That's a valid choice, but make it deliberately: it can reduce how well models know your brand. To let them in, add this group to robots.txt (a named group overrides User-agent: *):",
+    blockedSearch.length ? robotsSnippet.replace(/^User-agent: (GPTBot|ClaudeBot|CCBot|Google-Extended|Applebot-Extended)\n/gm, "") : robotsSnippet);
 
+  const title = (elements(head, "title")[0]?.text || "").trim();
+  const desc = metaContent(metas, "description");
+  const siteName = metaContent(metas, "og:site_name") || title.split(/\s[|–—-]\s/).pop() || u.hostname;
+  const llmsText = llms && llms.status === 200 && !/<html/i.test(llms.text) ? llms.text.trim() : "";
+  const llmsH1 = /^#\s+\S/m.test(llmsText);
+  const llmsLinks = (llmsText.match(/\]\([^)]+\)/g) || []).length;
   add("access", "llms", "llms.txt in the site root", 2,
-    llms && llms.status === 200 && llms.text.trim().length > 20 && !/<html/i.test(llms.text) ? "pass" : "fail",
-    llms && llms.status === 200 && !/<html/i.test(llms.text)
-      ? `Found /llms.txt (${words(llms.text)} words).`
+    llmsText.length > 20 ? (llmsH1 && llmsLinks ? "pass" : "warn") : "fail",
+    llmsText.length > 20
+      ? `Found /llms.txt (${words(llmsText)} words, ${llmsLinks} link${llmsLinks === 1 ? "" : "s"}${llmsH1 ? "" : ", no # title"}).`
       : "No /llms.txt found.",
-    "Add /llms.txt: a Markdown file with a one-line summary of who you are, then linked lists of your key pages per section. It gives language models a clean map of the site.");
+    llmsText.length > 20
+      ? "Follow the llms.txt format: start with a # title line, a > one-line summary, then ## sections with Markdown links to your key pages."
+      : "Add /llms.txt in the site root: a # title, a > one-line summary, then ## sections listing your key pages as Markdown links. Start from this:",
+    `# ${siteName}\n\n> ${desc || "One sentence on who you are and what you offer."}\n\n## Key pages\n\n- [${title || "Home"}](${u.origin}${u.pathname}): one line on what this page covers\n- [About](${u.origin}/about): who we are\n`);
 
   add("access", "sitemap", "XML sitemap available", 2,
     sitemap && sitemap.status === 200 ? "pass" : "fail",
     sitemap && sitemap.status === 200 ? `Found ${sitemap.url.replace(u.origin, "")}.` : "No sitemap at /sitemap.xml or in robots.txt.",
     "Publish a sitemap with honest lastmod dates, list it in robots.txt, and submit it to both Google Search Console and Bing Webmaster Tools. ChatGPT search relies on Bing's index.");
 
+  if (!readable) return finish();
+
+  const scripts = (html.match(/<script\b/gi) || []).length;
+  const shell = wordCount < 80 && (/<div\b[^>]*\bid=["'](root|app|__next|__nuxt|svelte|q-app)["'][^>]*>\s*<\/div>/i.test(html) || scripts >= 5);
   add("access", "rawtext", "Content readable without JavaScript", 4,
     wordCount >= 250 ? "pass" : wordCount >= 80 ? "warn" : "fail",
-    `${wordCount} words of text in the raw HTML.`,
+    `${wordCount} words of text in the raw HTML.${shell ? ` The page looks like a JavaScript app shell (${scripts} scripts): its content only appears after scripts run, so most AI crawlers see an empty page.` : ""}`,
     wordCount < 80
       ? "Most AI crawlers don't run JavaScript. Server-render or pre-render the main content so it's in the HTML response."
       : "The page is thin in raw HTML. Answer engines prefer pages with enough substance to quote. Aim for 300+ words of real content, or confirm key content isn't loaded client-side.");
@@ -249,27 +315,31 @@ export function analyze(input) {
 
   /* ================= METADATA ================= */
 
-  const title = (elements(head, "title")[0]?.text || "").trim();
   add("meta", "title", "Descriptive title", 3,
     title.length >= 15 && title.length <= 65 ? "pass" : title ? "warn" : "fail",
     title ? `"${title}" (${title.length} chars).` : "No <title> tag.",
     !title ? "Add a unique <title> that names the page topic first." : title.length < 15 ? "Title is very short. Say what the page is about, topic first, brand last." : "Title is long and may be cut off. Keep it under ~60 characters with the topic first.");
 
-  const desc = metaContent(metas, "description");
   add("meta", "description", "Meta description", 2,
     desc && desc.length >= 70 && desc.length <= 170 ? "pass" : desc ? "warn" : "fail",
     desc ? `${desc.length} chars: "${desc.slice(0, 160)}${desc.length > 160 ? "…" : ""}"` : "No meta description.",
     "Write a 120–160 character description that answers \"what is this page?\" in plain words. Engines often reuse it as a summary.");
 
   const canonical = links.find((l) => (l.rel || "").toLowerCase().split(/\s+/).includes("canonical"))?.href;
-  let canonOk = false;
+  const bare = (x) => x.host.replace(/^www\./, "") + x.pathname.replace(/\/$/, "");
+  let canonSame = false;
   try {
-    canonOk = !!canonical && new URL(canonical, url).host === u.host;
+    canonSame = !!canonical && bare(new URL(canonical, url)) === bare(u);
   } catch {}
   add("meta", "canonical", "Canonical URL", 2,
-    canonOk ? "pass" : canonical ? "warn" : "fail",
-    canonical ? `Canonical → ${canonical}` : "No canonical link.",
-    canonical ? "The canonical points to another host. Make sure that's intended." : "Add <link rel=\"canonical\"> so duplicates don't split signals.");
+    canonSame ? "pass" : canonical ? "warn" : "fail",
+    canonical
+      ? canonSame ? `Canonical → ${canonical}` : `Canonical points to a different URL: ${canonical}. Engines will index and cite that page instead of this one.`
+      : "No canonical link.",
+    canonical
+      ? "If this page should be cited in its own right, point the canonical at its own URL. If it's a duplicate, that's fine: scan the canonical URL instead."
+      : "Add a canonical link to the <head> so duplicates (tracking parameters, www/non-www) don't split signals:",
+    `<link rel="canonical" href="${u.origin}${u.pathname}">`);
 
   const lang = (html.match(/<html\b[^>]*>/i) || [""])[0];
   const langVal = attrs(lang).lang;
@@ -312,11 +382,29 @@ export function analyze(input) {
     !heads.length ? "No headings found." : skips.length ? `Skipped levels: ${skips.join(", ")}.` : `${subheads.length} H2/H3 headings.`,
     skips.length ? "Don't skip heading levels. Models use the outline to understand which text answers which topic." : "Break content into sections with descriptive H2/H3 headings.");
 
-  const questions = subheads.filter((h) => /\?\s*$/.test(h.text) || QUESTION_START.test(h.text));
-  add("structure", "questions", "Question-style headings", 3,
-    questions.length >= 2 ? "pass" : questions.length === 1 ? "warn" : "fail",
-    questions.length ? `${questions.length}: ${questions.slice(0, 3).map((q) => `"${q.text.slice(0, 60)}"`).join(", ")}${questions.length > 3 ? "…" : ""}` : "No headings phrased as questions.",
-    "Phrase some H2/H3s the way people ask (\"How much does X cost?\") and answer each in the first 40–60 words below it. These answer blocks are what engines lift.");
+  // Answer-shaped passages: a question heading followed straight away by a short, standalone answer.
+  const isQ = (t) => /\?\s*$/.test(t) || QUESTION_START.test(t);
+  const sections = [];
+  const sre = /<h([1-6])\b[^>]*>([\s\S]*?)<\/h\1\s*>/gi;
+  let sm;
+  while ((sm = sre.exec(cleanBody))) sections.push({ level: +sm[1], text: stripTags(sm[2]), from: sre.lastIndex, to: cleanBody.length });
+  sections.forEach((x, i) => sections[i + 1] && (x.to = cleanBody.indexOf("<h" + sections[i + 1].level, x.from)));
+  const questions = sections.filter((x) => x.level >= 2 && x.level <= 4 && isQ(x.text)).map((x) => {
+    const chunk = cleanBody.slice(x.from, Math.max(x.from, x.to));
+    // ponytail: first <p> or, for accordion FAQs without <p>, the section's text; misses answers split across several tags
+    const answer = (elements(chunk, "p").map((p) => p.text).find((t) => words(t) >= 5) || stripTags(chunk)).slice(0, 600);
+    const w = words(answer);
+    return { q: x.text, a: answer, direct: w >= 12 && w <= 90 };
+  });
+  const answered = questions.filter((x) => x.direct);
+  add("structure", "questions", "Questions answered right below", 3,
+    answered.length >= 2 ? "pass" : questions.length ? "warn" : "fail",
+    questions.length
+      ? `${questions.length} question heading${questions.length === 1 ? "" : "s"}, ${answered.length} with a short direct answer underneath: ${questions.slice(0, 3).map((q) => `"${q.q.slice(0, 60)}"`).join(", ")}${questions.length > 3 ? "…" : ""}`
+      : "No headings phrased as questions.",
+    questions.length && questions.length > answered.length
+      ? "Right under each question heading, start with a 1–3 sentence answer (about 20–60 words) that makes sense on its own, then add the detail. A long or missing first paragraph can't be lifted as an answer."
+      : "Phrase two or more H2s the way people ask (\"How much does X cost?\") and answer each in 20–60 words directly underneath. These answer blocks are what engines lift.");
 
   const paras = elements(contentHtml, "p").map((p) => p.text).filter((t) => words(t) >= 8);
   const firstPara = paras[0] || "";
@@ -362,7 +450,8 @@ export function analyze(input) {
   add("authority", "entity", "Organization identity with sameAs", 3,
     org && sameAs.length ? "pass" : org ? "warn" : "fail",
     org ? `${[].concat(org["@type"])[0]} "${org.name || "?"}"${sameAs.length ? ` with ${sameAs.length} sameAs link${sameAs.length === 1 ? "" : "s"}` : ", no sameAs"}.` : "No Organization or Person schema.",
-    org ? "Add sameAs links to your official profiles (LinkedIn, Wikipedia, Crunchbase, company registry) so models can confirm the entity." : "Add Organization schema with your exact brand name, logo, URL and sameAs links to official profiles.");
+    org ? "Add sameAs links to your official profiles (LinkedIn, Wikipedia, Crunchbase, company registry) so models can confirm the entity." : "Add Organization (or Person, for a personal site) schema in the <head> of every page, with your exact name, logo and official profiles:",
+    org ? null : `<script type="application/ld+json">\n${JSON.stringify({ "@context": "https://schema.org", "@type": "Organization", name: siteName, url: u.origin + "/", logo: u.origin + "/logo.png", sameAs: ["https://www.linkedin.com/company/…", "https://en.wikipedia.org/wiki/…"] }, null, 2)}\n</script>`);
 
   const pageType = [...types].find((t) =>
     /^(Article|BlogPosting|NewsArticle|TechArticle|Service|Product|SoftwareApplication|FAQPage|HowTo|Recipe|Course|Event|WebPage|AboutPage|CollectionPage|ProfessionalService)$/.test(t));
@@ -377,10 +466,11 @@ export function analyze(input) {
     authorName ? `Author: ${authorName}.` : hasType("Person") ? "Person schema present." : "No named author.",
     "Name a real author with a Person schema (role, sameAs). Content with a verifiable author carries more weight than anonymous text.");
 
-  if (questions.length >= 2 || hasType("FAQPage"))
+  if (answered.length >= 2 || hasType("FAQPage"))
     add("authority", "faq", "FAQ markup matches visible Q&A", 2, hasType("FAQPage") ? "pass" : "warn",
-      hasType("FAQPage") ? "FAQPage schema present." : `${questions.length} question headings but no FAQPage schema.`,
-      "Mark visible question-and-answer sections up as FAQPage. Only mark up questions that are on the page; hidden FAQ markup gets penalised.");
+      hasType("FAQPage") ? "FAQPage schema present." : `${answered.length} answered questions but no FAQPage schema.`,
+      "Mark the visible questions and answers up as FAQPage, word for word. Only mark up questions that are on the page. Built from this page:",
+      `<script type="application/ld+json">\n${JSON.stringify({ "@context": "https://schema.org", "@type": "FAQPage", mainEntity: answered.slice(0, 6).map((x) => ({ "@type": "Question", name: x.q, acceptedAnswer: { "@type": "Answer", text: x.a } })) }, null, 2)}\n</script>`);
 
   const anchors = tagsOf(contentHtml, "a").map((a) => a.href).filter(Boolean);
   let external = 0, internal = 0;
@@ -401,7 +491,9 @@ export function analyze(input) {
     `${stats} figure${stats === 1 ? "" : "s"} (percentages, prices, amounts) in the content.`,
     "Add specific numbers, prices, dates and named examples, each with its source in the same sentence. Original data is what models can't get anywhere else.");
 
-  /* ================= scoring ================= */
+  return finish();
+
+  function finish() {
 
   const pts = { pass: 1, warn: 0.5, fail: 0 };
   const scoreOf = (list) => {
@@ -410,11 +502,11 @@ export function analyze(input) {
   };
   const categories = CATEGORIES.map((c) => {
     const list = checks.filter((k) => k.category === c.id);
-    return { ...c, score: scoreOf(list), passed: list.filter((k) => k.status === "pass").length, total: list.length };
+    return { ...c, score: list.length ? scoreOf(list) : null, passed: list.filter((k) => k.status === "pass").length, total: list.length };
   });
   // A page crawlers can't get at is not "partly ready": cap the score.
   let score = scoreOf(checks);
-  const hardFail = checks.some((c) => ["status", "noindex"].includes(c.id) && c.status === "fail");
+  const hardFail = !readable || checks.some((c) => c.id === "noindex" && c.status === "fail");
   if (hardFail) score = Math.min(score, 25);
 
   return {
@@ -422,9 +514,14 @@ export function analyze(input) {
     scannedAt: new Date().toISOString(),
     score,
     grade: score >= 85 ? "Ready" : score >= 65 ? "Almost there" : score >= 40 ? "Needs work" : "Hard to find",
-    page: { title, description: desc, wordCount, timeMs: Math.round(timeMs), status },
+    page: { title, description: desc, wordCount: readable ? wordCount : 0, timeMs: Math.round(timeMs), status, readable },
     categories,
     checks,
     bots,
+    // The passages an engine is most likely to lift: answered questions, else the opening paragraph.
+    quotes: !readable ? [] : answered.length
+      ? answered.slice(0, 3).map((x) => ({ q: x.q, a: x.a }))
+      : firstPara ? [{ q: null, a: firstPara.slice(0, 600) }] : [],
   };
+  }
 }
